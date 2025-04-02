@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "977332186425",
+    "project_id": "sacred-nihilism",
+    "storage_bucket": "sacred-nihilism.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:977332186425:android:57bc829edbca375824cce8",
+        "android_client_info": {
+          "package_name": "com.sacrednihilism.snapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2RttNNddo-KZhd8nyA5NNzR5o1BzpkJ8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
