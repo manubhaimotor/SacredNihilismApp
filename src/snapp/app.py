@@ -23,7 +23,9 @@ FIRESTORE_URL = "https://firestore.googleapis.com/v1/projects/sacred-nihilism/da
 
 from snapp.services.auth import sign_in_with_email_password
 import toga
-
+from toga import Image
+# Save to temporary file
+import uuid
 from datetime import datetime, timedelta
 
 
@@ -156,7 +158,15 @@ class ActivityLogger(toga.App):
             self.data = [entry for entry in self.data if entry["time_frame"] == selected_filter]
 
         self.show_visualization_screen()
+    
+    def group_entries(self, data, category):
+        counts = {}
+        for entry in data:
+            key = entry.get(category, "Unknown")
+            counts[key] = counts.get(key, 0) + 1
+        return counts
         
+    
     def show_previous_timeframe(self, widget):
         """Move to the previous time period."""
         self.reference_date -= self.get_time_offset()
@@ -181,14 +191,31 @@ class ActivityLogger(toga.App):
     
 
     def show_visualization_screen(self, widget=None):
+        if not hasattr(self, 'reference_date'):
+            self.reference_date = datetime.now()
+        
         self.current_screen = build_visualization_screen(self)
         self.main_window.content = self.current_screen
   
 
     def generate_activity_chart(self, data, chart_type, category):
-        """Temporary placeholder chart until Toga-native visualization is implemented."""
-        placeholder_path = os.path.join(os.path.dirname(__file__), "placeholder_chart.png")
-        return toga.Image(placeholder_path)
+        grouped_data = self.group_entries(data, category)
+
+        if chart_type == "Bar":
+            from snapp.charts.bar_chart import generate_bar_chart_image
+            img = generate_bar_chart_image(grouped_data)
+        elif chart_type == "Pie":
+            from snapp.charts.pie_chart import generate_pie_chart_image
+            img = generate_pie_chart_image(grouped_data)
+        else:
+            return toga.Label("Unknown chart type")
+
+        filename = f"chart_{uuid.uuid4().hex}.png"
+        temp_path = os.path.join(os.path.dirname(__file__), filename)
+        img.save(temp_path)
+
+        return Image(temp_path)
+
 
       
     def filter_data_by_timeframe(self, timeframe, reference_date=None):

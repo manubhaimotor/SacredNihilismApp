@@ -28,7 +28,7 @@ class LoginScreen:
 
 
     def get_root_widget(self):
-        return self.main_box
+        return toga.ScrollContainer(content=self.main_box)
 
     async def handle_login(self, widget):
         email = self.email_input.value.strip()

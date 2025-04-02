@@ -50,4 +50,5 @@ def build_followup_screen(app, x_label, y_label):
 
     followup_box.add(legend_box)
 
-    return followup_box
+    return toga.ScrollContainer(content=followup_box)
+    

@@ -28,4 +28,5 @@ def build_instructions_screen(app):
     )
     instructions_box.add(track_data_button)
 
-    return instructions_box
+    return toga.ScrollContainer(content=instructions_box)
+    

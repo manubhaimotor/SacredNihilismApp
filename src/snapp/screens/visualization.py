@@ -64,11 +64,14 @@ def build_visualization_screen(app):
         goal_chart = app.generate_activity_chart(filtered_data, app.chart_type_dropdown.value, "goal_type")
         time_chart = app.generate_activity_chart(filtered_data, app.chart_type_dropdown.value, "time_frame")
 
-        charts_box = toga.Box(style=Pack(direction=ROW, padding=10, alignment=CENTER))
+        # Chart titles
+        vis_box.add(toga.Label("🎯 Goal-Type Breakdown", style=Pack(font_size=16, padding_bottom=5, padding_top=10)))
         app.goal_chart_widget = toga.ImageView(goal_chart, style=Pack(width=300, height=300, padding=5))
-        app.time_chart_widget = toga.ImageView(time_chart, style=Pack(width=300, height=300, padding=5))
-        charts_box.add(app.goal_chart_widget)
-        charts_box.add(app.time_chart_widget)
-        vis_box.add(charts_box)
+        vis_box.add(app.goal_chart_widget)
 
-    return vis_box
+        vis_box.add(toga.Label("⏳ Time-Span Breakdown", style=Pack(font_size=16, padding_bottom=5, padding_top=10)))
+        app.time_chart_widget = toga.ImageView(time_chart, style=Pack(width=300, height=300, padding=5))
+        vis_box.add(app.time_chart_widget)
+
+    return toga.ScrollContainer(content=vis_box)
+

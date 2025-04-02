@@ -43,4 +43,6 @@ def build_goal_type_screen(app):
     )
     goal_type_box.add(back_button)
 
-    return goal_type_box
+    return toga.ScrollContainer(content=goal_type_box)
+
+    

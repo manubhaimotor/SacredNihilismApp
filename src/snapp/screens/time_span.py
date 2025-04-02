@@ -51,4 +51,5 @@ def build_time_span_screen(app, selected_goal_type):
     )
     time_span_box.add(back_button)
 
-    return time_span_box
+    return toga.ScrollContainer(content=time_span_box)
+    
