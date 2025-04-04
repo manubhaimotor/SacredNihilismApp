@@ -70,11 +70,15 @@ class ActivityLogger(toga.App):
             self.data = rows
             print("✅ Data loaded from SQLite:", self.data)
 
-
-            # ✅ If online, fetch additional data from Firestore
             if is_online() and self.user_token:
                 firestore_entries = fetch_from_firestore(self.user_token)
-                self.data.extend(firestore_entries)
+
+                # Deduplicate using timestamp string
+                existing_ts = {entry["timestamp"] for entry in self.data if entry.get("timestamp")}
+                new_entries = [entry for entry in firestore_entries if entry.get("timestamp") not in existing_ts]
+
+                self.data.extend(new_entries)
+                print(f"📦 Final data loaded: {len(self.data)} entries")
 
 
         except Exception as e:
@@ -168,14 +172,27 @@ class ActivityLogger(toga.App):
         
     
     def show_previous_timeframe(self, widget):
-        """Move to the previous time period."""
-        self.reference_date -= self.get_time_offset()
-        self.update_chart_based_on_filter(None)  # ✅ Ensure correct data reload
+        """Go to the previous timeframe and update charts if data exists."""
+        previous_date = self.reference_date - self.get_time_offset()
+        filtered = self.filter_data_by_timeframe(self.timeframe, reference_date=previous_date)
+
+        if filtered:
+            self.reference_date = previous_date
+            self.update_chart_only(widget)  
+        else:
+            print("🚫 No data for previous timeframe.")
 
     def show_next_timeframe(self, widget):
-        """Move to the next time period."""
-        self.reference_date += self.get_time_offset()
-        self.update_chart_based_on_filter(None)  # ✅ Ensure correct data reload
+        """Go to the next timeframe and update charts if data exists."""
+        next_date = self.reference_date + self.get_time_offset()
+        filtered = self.filter_data_by_timeframe(self.timeframe, reference_date=next_date)
+
+        if filtered:
+            self.reference_date = next_date
+            self.update_chart_only(widget)  
+        else:
+            print("🚫 No data for next timeframe.")
+
 
     def get_time_offset(self):
         """Return the timedelta offset based on the selected timeframe."""
@@ -203,10 +220,10 @@ class ActivityLogger(toga.App):
 
         if chart_type == "Bar":
             from snapp.charts.bar_chart import generate_bar_chart_image
-            img = generate_bar_chart_image(grouped_data)
+            img = generate_bar_chart_image(grouped_data, category_type="goal" if category == "goal_type" else "time")
         elif chart_type == "Pie":
             from snapp.charts.pie_chart import generate_pie_chart_image
-            img = generate_pie_chart_image(grouped_data)
+            img = generate_pie_chart_image(grouped_data, category_type="goal" if category == "goal_type" else "time")
         else:
             return toga.Label("Unknown chart type")
 
@@ -219,6 +236,8 @@ class ActivityLogger(toga.App):
 
       
     def filter_data_by_timeframe(self, timeframe, reference_date=None):
+        print(f"🌀 filter_data_by_timeframe() called with timeframe={timeframe}, ref={reference_date}")
+
         """Filter data based on selected timeframe."""
         if not reference_date:
             reference_date = datetime.now()
@@ -257,32 +276,98 @@ class ActivityLogger(toga.App):
 
         # ✅ Move return outside the loop to collect all matching entries
         print(f"✅ Filtered Data ({timeframe}):", filtered_data)
+        print(f"🧭 Using reference_date: {reference_date}")
         return filtered_data
 
 
-    def update_chart_based_on_filter(self, widget):
-        """Update both charts when timeframe or chart type changes."""
-        # Load the latest data
-        self.load_data()
+    def update_chart_from_dropdown(self, widget):
+        """Called when user selects a new timeframe or chart type from dropdowns."""
+        import traceback
+        print("🔁 update_chart_from_dropdown triggered!")
+        traceback.print_stack(limit=5)
+        print("🎯 Current timeframe:", self.timeframe_dropdown.value)
+        print("🎨 Current chart type:", self.chart_type_dropdown.value)
 
-        # Get user-selected options
+        # Load fresh data + reset reference date to latest
+        self.load_data()
+        self.reset_reference_to_latest()
+
+        # Update state
         self.timeframe = self.timeframe_dropdown.value
         self.chart_type = self.chart_type_dropdown.value
 
-        # ✅ Use self.reference_date to ensure correct time-based filtering
+        # Now update the chart UI
+        self.update_chart_only(widget)
+
+    def update_chart_only(self, widget):
+        """Refresh chart display based on existing reference_date and dropdowns."""
+        from toga import ImageView
+        from toga.style import Pack
+        
+        if not hasattr(self, "chart_type_dropdown") or not hasattr(self, "timeframe_dropdown"):
+            print("⚠️ Dropdowns not initialized yet.")
+            return
+
+        print("🧭 Using reference_date (final):", self.reference_date)
+
+        # Filter data based on selected timeframe and current reference date
         filtered_data = self.filter_data_by_timeframe(self.timeframe, reference_date=self.reference_date)
 
-        # ✅ Pass the category to generate_activity_chart()
+        # Clear old charts
+        self.chart_container.children.clear()
+
+        if not filtered_data:
+            self.chart_container.add(
+                toga.Label("No entries found. Please select a previous time frame.",
+                           style=Pack(font_size=14, text_align="center", padding=20))
+            )
+            return
+
+        #   Generate chart images
         goal_chart = self.generate_activity_chart(filtered_data, self.chart_type, "goal_type")
         time_chart = self.generate_activity_chart(filtered_data, self.chart_type, "time_frame")
 
-        # ✅ Update both chart widgets
-        if hasattr(self, 'goal_chart_widget') and hasattr(self, 'time_chart_widget'):
-            self.goal_chart_widget.image = goal_chart
-            self.time_chart_widget.image = time_chart
-        else:
-            print("⚠️ Chart widgets not initialized yet.")
+        # Add ImageViews
+        self.goal_chart_widget = ImageView(goal_chart, style=Pack(width=300, height=300, padding=5))
+        self.time_chart_widget = ImageView(time_chart, style=Pack(width=300, height=300, padding=5))
+
+        self.chart_container.add(toga.Label("🎯 Goal-Type Breakdown", style=Pack(font_size=16, padding_bottom=5, padding_top=10)))
+        self.chart_container.add(self.goal_chart_widget)
+        self.chart_container.add(toga.Label("⏳ Time-Span Breakdown", style=Pack(font_size=16, padding_bottom=5, padding_top=10)))
+        self.chart_container.add(self.time_chart_widget)
+
+        # Handle nav button states
+        prev_date = self.reference_date - self.get_time_offset()
+        next_date = self.reference_date + self.get_time_offset()
+
+        has_prev = any(self.filter_data_by_timeframe(self.timeframe, reference_date=prev_date))
+        has_next = any(self.filter_data_by_timeframe(self.timeframe, reference_date=next_date))
+
+        self.prev_button.enabled = has_prev
+        self.next_button.enabled = has_next
+
+        print("📊 Goal Chart Grouped:", self.group_entries(filtered_data, "goal_type"))
+        print("📊 Time Chart Grouped:", self.group_entries(filtered_data, "time_frame"))
+
             
+    def reset_reference_to_latest(self):
+        """Set reference_date to the most recent timestamp in self.data."""
+        if not self.data:
+            self.reference_date = datetime.now()
+            return
+
+        try:
+            # Get the latest timestamp from all entries
+            latest_entry = max(
+                self.data,
+                key=lambda x: datetime.fromisoformat(x["timestamp"]) if x.get("timestamp") else datetime.min
+            )
+            self.reference_date = datetime.fromisoformat(latest_entry["timestamp"])
+            print(f"📌 Reference date set to latest entry: {self.reference_date}")
+        except Exception as e:
+            print("⚠️ Could not determine latest reference date:", e)
+            self.reference_date = datetime.now()
+    
     def after_login_success(self, id_token):
         print("🚀 after_login_success called!")  # Optional debug
         self.user_token = id_token
