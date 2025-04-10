@@ -24,6 +24,9 @@ FIRESTORE_URL = "https://firestore.googleapis.com/v1/projects/sacred-nihilism/da
 from snapp.services.auth import sign_in_with_email_password
 import toga
 from toga import Image
+from toga.style import Pack
+from toga.style.pack import CENTER
+from toga.style.pack import COLUMN
 # Save to temporary file
 import uuid
 from datetime import datetime, timedelta
@@ -173,26 +176,67 @@ class ActivityLogger(toga.App):
         
     
     def show_previous_timeframe(self, widget):
-        """Go to the previous timeframe and update charts if data exists."""
-        previous_date = self.reference_date - self.get_time_offset()
-        filtered = self.filter_data_by_timeframe(self.timeframe, reference_date=previous_date)
+        """Go back in time until data is found or beginning of logs is reached."""
+        offset = self.get_time_offset()
+        current_date = self.reference_date
 
-        if filtered:
-            self.reference_date = previous_date
-            self.update_chart_only(widget)  
-        else:
-            print("🚫 No data for previous timeframe.")
+        earliest_date = min(
+            (datetime.fromisoformat(entry["timestamp"]) for entry in self.data if "timestamp" in entry),
+            default=datetime.min
+        )
+
+        while True:
+            current_date -= offset
+            if current_date < earliest_date:
+                print("🔚 Reached beginning of data. No earlier entries.")
+                break
+
+            filtered = self.filter_data_by_timeframe(self.timeframe, reference_date=current_date)
+            if filtered:
+                self.reference_date = current_date
+                self.update_chart_only(widget)
+                return
+            else:
+                print(f"⏪ Skipping empty frame: {current_date.date()}")
+
+        # If we fall out of the loop, disable the button
+        self.prev_button.enabled = False
+        self.chart_container.children.clear()
+        no_data_box = toga.Box(style=Pack(direction=COLUMN, alignment=CENTER, padding=20))
+        no_data_box.add(toga.Label("No earlier data available.", style=Pack(font_size=14)))
+        self.chart_container.add(no_data_box)
 
     def show_next_timeframe(self, widget):
-        """Go to the next timeframe and update charts if data exists."""
-        next_date = self.reference_date + self.get_time_offset()
-        filtered = self.filter_data_by_timeframe(self.timeframe, reference_date=next_date)
+        """Step forward in time until a timeframe with data is found or future is exhausted."""
+        offset = self.get_time_offset()
+        current_date = self.reference_date
 
-        if filtered:
-            self.reference_date = next_date
-            self.update_chart_only(widget)  
-        else:
-            print("🚫 No data for next timeframe.")
+        latest_date = max(
+            (datetime.fromisoformat(entry["timestamp"]) for entry in self.data if "timestamp" in entry),
+            default=datetime.max
+        )
+
+        while True:
+            current_date += offset
+            if current_date > latest_date:
+                print("🔚 Reached latest data point. No future entries.")
+                break
+
+            filtered = self.filter_data_by_timeframe(self.timeframe, reference_date=current_date)
+            if filtered:
+                self.reference_date = current_date
+                self.update_chart_only(widget)
+                return
+            else:
+                print(f"⏩ Skipping empty frame: {current_date.date()}")
+
+        # If we fall out of the loop, disable the button
+        self.next_button.enabled = False
+        self.chart_container.children.clear()
+        fallback_box = toga.Box(style=Pack(direction="column", alignment=CENTER, padding=20))
+        fallback_box.add(toga.Label("No later data available.", style=Pack(font_size=14)))
+        self.chart_container.add(fallback_box)
+
 
 
     def get_time_offset(self):
@@ -304,31 +348,66 @@ class ActivityLogger(toga.App):
         """Refresh chart display based on existing reference_date and dropdowns."""
         from toga import ImageView
         from toga.style import Pack
-        
+        from datetime import timedelta
+
         if not hasattr(self, "chart_type_dropdown") or not hasattr(self, "timeframe_dropdown"):
             print("⚠️ Dropdowns not initialized yet.")
             return
 
         print("🧭 Using reference_date (final):", self.reference_date)
-
-        # Filter data based on selected timeframe and current reference date
+        
+        # Filter data for current timeframe
         filtered_data = self.filter_data_by_timeframe(self.timeframe, reference_date=self.reference_date)
-
+        
         # Clear old charts
         self.chart_container.children.clear()
 
+        # 🧭 Add readable timeframe header
+        def format_reference_range():
+            date = self.reference_date
+            if self.timeframe == "Daily":
+                return f"Data for: {date.strftime('%d/%m/%y')}"
+            elif self.timeframe == "Weekly":
+                start_of_week = date - timedelta(days=date.weekday())
+                end_of_week = start_of_week + timedelta(days=6)
+                return f"Data for: {start_of_week.strftime('%d/%m/%y')} – {end_of_week.strftime('%d/%m/%y')}"
+            elif self.timeframe == "Monthly":
+                return f"Data for: {date.strftime('%B %Y')}"
+            elif self.timeframe == "Yearly":
+                return f"Data for: {date.strftime('%Y')}"
+            return "Data for: Unknown"
+
+        self.chart_container.add(
+            toga.Label(format_reference_range(), style=Pack(font_size=16, font_weight="bold", padding=(10, 0, 5, 0)))
+        )
+
+        # Check navigation states *before* exiting early
+        prev_date = self.reference_date - self.get_time_offset()
+        next_date = self.reference_date + self.get_time_offset()
+
+        has_prev_data = any(
+            datetime.fromisoformat(entry["timestamp"]) < self.reference_date
+            for entry in self.data if "timestamp" in entry and entry["timestamp"]
+        )
+        has_next_data = any(
+            datetime.fromisoformat(entry["timestamp"]) > self.reference_date
+            for entry in self.data if "timestamp" in entry and entry["timestamp"]
+        )
+
+        self.prev_button.enabled = has_prev_data
+        self.next_button.enabled = has_next_data
+
+        # Show fallback and exit early if nothing to chart
         if not filtered_data:
-            self.chart_container.add(
-                toga.Label("No entries found. Please select a previous time frame.",
-                           style=Pack(font_size=14, text_align="center", padding=20))
-            )
+            fallback_box = toga.Box(style=Pack(direction="column", padding=20, alignment="center"))
+            fallback_box.add(toga.Label("No data for this time period.", style=Pack(font_size=14)))
+            self.chart_container.add(fallback_box)
             return
 
-        #   Generate chart images
+        # ✅ Generate charts
         goal_chart = self.generate_activity_chart(filtered_data, self.chart_type, "goal_type")
         time_chart = self.generate_activity_chart(filtered_data, self.chart_type, "time_frame")
 
-        # Add ImageViews
         self.goal_chart_widget = ImageView(goal_chart, style=Pack(width=300, height=300, padding=5))
         self.time_chart_widget = ImageView(time_chart, style=Pack(width=300, height=300, padding=5))
 
@@ -336,19 +415,6 @@ class ActivityLogger(toga.App):
         self.chart_container.add(self.goal_chart_widget)
         self.chart_container.add(toga.Label("⏳ Time-Span Breakdown", style=Pack(font_size=16, padding_bottom=5, padding_top=10)))
         self.chart_container.add(self.time_chart_widget)
-
-        # Handle nav button states
-        prev_date = self.reference_date - self.get_time_offset()
-        next_date = self.reference_date + self.get_time_offset()
-
-        has_prev = any(self.filter_data_by_timeframe(self.timeframe, reference_date=prev_date))
-        has_next = any(self.filter_data_by_timeframe(self.timeframe, reference_date=next_date))
-
-        self.prev_button.enabled = has_prev
-        self.next_button.enabled = has_next
-
-        print("📊 Goal Chart Grouped:", self.group_entries(filtered_data, "goal_type"))
-        print("📊 Time Chart Grouped:", self.group_entries(filtered_data, "time_frame"))
 
             
     def show_time_span_screen(self, selected_goal_type):
