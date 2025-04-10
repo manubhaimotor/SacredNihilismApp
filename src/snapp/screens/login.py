@@ -40,9 +40,9 @@ class LoginScreen:
         from snapp.services.auth import sign_in_with_email_password
 
         try:
-            id_token = sign_in_with_email_password(email, password)
-            if id_token:
-                self.app.after_login_success(id_token)
+            user_data = sign_in_with_email_password(email, password)
+            if user_data:
+                self.app.after_login_success(user_data)
             else:
                 print("❌ Firebase Login Failed: No token returned.")
                 self.error_label.text = "❌ Invalid credentials."

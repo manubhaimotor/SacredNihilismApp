@@ -124,9 +124,8 @@ class ActivityLogger(toga.App):
     def handle_goal_type_selection(self, selected_goal_type):
         self.selected_goal_type = selected_goal_type  # store temporarily
         from snapp.screens.time_span import build_time_span_screen
-        self.current_screen = build_time_span_screen(self, selected_goal_type)
-        self.main_window.content = self.current_screen
-        self.main_window.show()
+        self.show_time_span_screen(selected_goal_type)
+
 
     def handle_time_frame_selection(self, selected_time_frame, goal_type):
         # Save and move to follow-up
@@ -147,6 +146,8 @@ class ActivityLogger(toga.App):
         self.main_window.show()
                
     def show_followup_screen(self, x_label, y_label, widget=None):
+        self.last_x_label = x_label
+        self.last_y_label = y_label
         self.current_screen = build_followup_screen(self, x_label, y_label)
         self.main_window.content = self.current_screen
         self.main_window.show()
@@ -350,6 +351,18 @@ class ActivityLogger(toga.App):
         print("📊 Time Chart Grouped:", self.group_entries(filtered_data, "time_frame"))
 
             
+    def show_time_span_screen(self, selected_goal_type):
+        from snapp.screens.time_span import build_time_span_screen
+        self.current_screen = build_time_span_screen(self, selected_goal_type)
+        self.main_window.content = self.current_screen
+        self.main_window.show()
+
+    def show_login_screen(self, widget=None):
+        from snapp.screens.login import LoginScreen
+        self.current_screen = LoginScreen(self).get_root_widget()
+        self.main_window.content = self.current_screen
+        self.main_window.show()
+    
     def reset_reference_to_latest(self):
         """Set reference_date to the most recent timestamp in self.data."""
         if not self.data:
@@ -368,14 +381,39 @@ class ActivityLogger(toga.App):
             print("⚠️ Could not determine latest reference date:", e)
             self.reference_date = datetime.now()
     
-    def after_login_success(self, id_token):
-        print("🚀 after_login_success called!")  # Optional debug
-        self.user_token = id_token
+    def show_settings_screen(self, widget=None, back_action=None):
+        from snapp.screens.settings import build_settings_screen
+        self.current_screen = build_settings_screen(self, back_action=back_action)
+        self.main_window.content = self.current_screen
+    
+    def after_login_success(self, user_data):
+        print("🚀 after_login_success called!")
+        
+        # 🔐 Store Firebase auth and user info
+        self.user_token = user_data.get("idToken")
+        self.user_email = user_data.get("email", "Unknown Email")
+        self.user_id = user_data.get("localId")
+
+        # ✅ Setup local SQLite
         from snapp.services.local_db import setup_local_database
         self.conn, self.cursor = setup_local_database(self)
+
+        # 🔄 Load saved settings from Firestore
+        from snapp.services.settings_sync import load_settings_from_firestore
+        try:
+            self.nudge_settings = load_settings_from_firestore(self.user_token, self.user_id)
+            print("✅ Loaded settings from Firestore:", self.nudge_settings)
+        except Exception as e:
+            print("⚠️ Error loading settings:", e)
+            self.nudge_settings = {}
+
+        # 🔄 Load & sync data
         self.load_data()
         self.sync_offline_data()
+
+        # ⏩ Navigate to instructions screen
         self.show_instructions_screen()
+
 
 def main():
     return ActivityLogger()

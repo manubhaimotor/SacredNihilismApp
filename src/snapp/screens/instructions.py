@@ -1,6 +1,7 @@
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, CENTER, LEFT
+from snapp.utils.ui_helpers import get_settings_footer
 
 def build_instructions_screen(app):
     """Step 1: Display the instructions screen with Proceed and Track Data buttons."""
@@ -27,6 +28,7 @@ def build_instructions_screen(app):
         style=Pack(font_size=16, padding=10)
     )
     instructions_box.add(track_data_button)
-
+    # at the end of your box layout:
+    instructions_box.add(get_settings_footer(app, back_action=app.show_instructions_screen))
     return toga.ScrollContainer(content=instructions_box)
     

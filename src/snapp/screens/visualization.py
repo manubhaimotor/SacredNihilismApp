@@ -1,6 +1,7 @@
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, LEFT, CENTER
+from snapp.utils.ui_helpers import get_settings_footer
 
 
 def build_visualization_screen(app):
@@ -49,6 +50,9 @@ def build_visualization_screen(app):
     # 📦 Chart Container
     app.chart_container = toga.Box(style=Pack(direction=COLUMN, padding=5))
     vis_box.add(app.chart_container)
+    
+    # at the end of your box layout:
+    vis_box.add(get_settings_footer(app, back_action=app.show_visualization_screen))
 
     # 🧭 Determine current timeframe for reference
     app.reset_reference_to_latest()

@@ -1,11 +1,12 @@
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, LEFT, CENTER
+from snapp.utils.ui_helpers import get_settings_footer
 
 def build_followup_screen(app, x_label, y_label):
     """Step 3: Display the follow-up screen with enhanced layout and text formatting."""
     followup_box = toga.Box(style=Pack(direction=COLUMN, padding=10, alignment=LEFT))
-
+    
     # Back Button
     back_button = toga.Button(
         "←",
@@ -50,5 +51,11 @@ def build_followup_screen(app, x_label, y_label):
 
     followup_box.add(legend_box)
 
+    # ✅ FIXED: Wrap show_followup_screen with a lambda + required y_label
+    followup_box.add(
+        get_settings_footer(app, back_action=lambda w: app.show_followup_screen(app.last_x_label, app.last_y_label))
+    )
+
     return toga.ScrollContainer(content=followup_box)
+
     

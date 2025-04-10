@@ -21,10 +21,11 @@ def sign_in_with_email_password(email, password):
     if response.status_code == 200:
         user_data = response.json()
         print("✅ Successfully signed in:", user_data)
-        return user_data["idToken"]
+        return user_data  # 👈 Return the whole object now
     else:
         print("❌ Error signing in:", response.json())
         return None
+
 
 def extract_user_id(id_token):
     """Decode Firebase JWT to extract the user_id (UID)."""

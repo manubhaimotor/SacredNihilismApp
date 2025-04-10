@@ -1,6 +1,8 @@
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, CENTER, LEFT
+from snapp.utils.ui_helpers import get_settings_footer
+
 
 def build_goal_type_screen(app):
     goal_type_box = toga.Box(style=Pack(direction=COLUMN, padding=10, alignment=LEFT))
@@ -34,7 +36,8 @@ def build_goal_type_screen(app):
         legend_box.add(legend_row)
 
     goal_type_box.add(legend_box)
-
+    # at the end of your box layout:
+    goal_type_box.add(get_settings_footer(app, back_action=app.show_goal_type_screen))
     # Back Button
     back_button = toga.Button(
         "← Back",
