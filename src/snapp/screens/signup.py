@@ -54,5 +54,6 @@ class SignupScreen:
 
 
     def back_to_login(self, widget):
-        from snapp.screens.login import LoginScreen
-        self.app.main_window.content = LoginScreen(self.app).get_root_widget()
+        from snapp.screens.login import build_login_screen
+        self.app.main_window.content = build_login_screen(self.app)
+

@@ -54,7 +54,7 @@ def sign_up_with_email_password(email, password):
     print("📥 Firebase Response:", response.status_code, response.text)
 
     if response.status_code == 200:
-        return response.json()["idToken"]
+        return response.json()  # ✅ Return full user data, just like sign_in
     else:
        error_msg = response.json().get("error", {}).get("message", "UNKNOWN_ERROR")
        print(f"❌ Sign-up failed: {error_msg}")

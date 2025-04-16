@@ -1,12 +1,32 @@
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, LEFT, CENTER
+from datetime import datetime
 from snapp.utils.ui_helpers import get_settings_footer
+from snapp.services.nudge_scheduler import generate_nudge_times
+from snapp.services.local_db import get_meta_value, set_meta_value
+
 
 def build_followup_screen(app, x_label, y_label):
     """Step 3: Display the follow-up screen with enhanced layout and text formatting."""
     followup_box = toga.Box(style=Pack(direction=COLUMN, padding=10, alignment=LEFT))
-    
+
+    # ✅ 🔔 Schedule nudges only once per day (now persisted via SQLite)
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    last_scheduled = get_meta_value(app.conn, "last_nudge_schedule_date")
+
+    if last_scheduled != today_str:
+        nudges = app.nudge_settings.get("nudges_per_day", 4)
+        start_hour = app.nudge_settings.get("start_hour", 9)
+        end_hour = app.nudge_settings.get("end_hour", 21)
+        strategy = app.nudge_settings.get("strategy", "evenly")
+
+        generate_nudge_times(nudges, start_hour, end_hour, strategy)
+        set_meta_value(app.conn, "last_nudge_schedule_date", today_str)
+        print("✅ Nudge schedule saved for today.")
+    else:
+        print("🕒 Nudges already scheduled today (persisted).")
+
     # Back Button
     back_button = toga.Button(
         "←",
@@ -37,7 +57,7 @@ def build_followup_screen(app, x_label, y_label):
 
     legend_data = [
         ("Physical", "Will result in improved physical sensations", "Immediate Term", "Now to a few weeks"),
-        ("Biological", "Will either strengthen identitiy, improve control or increase access to resources", "Short Term", "Few weeks to 18 months"),
+        ("Biological", "Will either strengthen identity, improve control or increase access to resources", "Short Term", "Few weeks to 18 months"),
         ("Biology+", "You cannot imagine what the end goal would be", "Long Term", "18 months and beyond")
     ]
 
@@ -51,11 +71,8 @@ def build_followup_screen(app, x_label, y_label):
 
     followup_box.add(legend_box)
 
-    # ✅ FIXED: Wrap show_followup_screen with a lambda + required y_label
     followup_box.add(
         get_settings_footer(app, back_action=lambda w: app.show_followup_screen(app.last_x_label, app.last_y_label))
     )
 
     return toga.ScrollContainer(content=followup_box)
-
-    

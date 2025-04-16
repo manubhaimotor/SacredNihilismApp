@@ -6,11 +6,11 @@ def setup_local_database(app):
     db_dir = pathlib.Path(app.paths.app)
     db_dir.mkdir(parents=True, exist_ok=True)
 
-    db_path = db_dir / "activity_logs.db"
+    db_path = db_dir / f"activity_logs_{app.user_id}.db"
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
 
-    # Create table if it doesn't exist
+    # Create tables
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS activity_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,9 +21,17 @@ def setup_local_database(app):
             synced INTEGER DEFAULT 0
         )
     """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS meta (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    """)
+
     conn.commit()
 
-    # Ensure timestamp column exists (in case of legacy db)
+    # Ensure timestamp column exists (legacy check)
     cursor.execute("PRAGMA table_info(activity_logs)")
     columns = [col[1] for col in cursor.fetchall()]
     if 'timestamp' not in columns:
@@ -45,19 +53,28 @@ def insert_entry(cursor, conn, entry):
 
 
 def get_all_entries(cursor):
-    """Fetch all saved entries."""
     cursor.execute("SELECT goal_type, time_frame, note, timestamp FROM activity_logs")
     rows = cursor.fetchall()
     return [{"goal_type": row[0], "time_frame": row[1], "note": row[2], "timestamp": row[3]} for row in rows]
 
 
 def get_unsynced_entries(cursor):
-    """Fetch all entries that haven't been synced yet."""
     cursor.execute("SELECT id, goal_type, time_frame, note, timestamp FROM activity_logs WHERE synced = 0")
     return cursor.fetchall()
 
 
 def mark_entry_as_synced(cursor, conn, entry_id):
-    """Mark a specific entry as synced in the local DB."""
     cursor.execute("UPDATE activity_logs SET synced = 1 WHERE id = ?", (entry_id,))
     conn.commit()
+
+
+# ✅ NEW META TABLE HELPERS
+
+def set_meta_value(conn, key, value):
+    conn.execute('REPLACE INTO meta (key, value) VALUES (?, ?)', (key, value))
+    conn.commit()
+
+def get_meta_value(conn, key):
+    cursor = conn.execute('SELECT value FROM meta WHERE key = ?', (key,))
+    result = cursor.fetchone()
+    return result[0] if result else None

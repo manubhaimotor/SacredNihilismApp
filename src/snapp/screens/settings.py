@@ -2,6 +2,7 @@ import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, LEFT
 from snapp.services.settings_sync import save_settings_to_firestore, load_settings_from_firestore
+from snapp.services.local_db import set_meta_value  # ✅ Still needed to clear the cache on save
 
 
 def build_settings_screen(app, back_action=None):
@@ -94,8 +95,13 @@ def handle_save(app):
     print("📝 Attempting to save settings:", settings)
     try:
         save_settings_to_firestore(app.user_token, app.user_id, settings)
-        print("✅ Settings saved to Firebase!")
         app.nudge_settings = settings  # Update in-memory state
+        print("✅ Settings saved to Firebase!")
+
+        # ✅ Invalidate today's nudge schedule (force reschedule next time)
+        set_meta_value(app.conn, "last_nudge_schedule_date", "")
+        print("🧼 Cleared today's nudge schedule cache")
+
     except Exception as e:
         print("❌ Failed to save settings to Firebase", e)
         app.main_window.dialog(
