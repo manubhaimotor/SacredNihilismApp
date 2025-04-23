@@ -2,12 +2,12 @@ from PIL import Image, ImageDraw
 import math
 
 # ✅ Reuse the same fixed order and colors
-GOAL_ORDER = ["Physical", "Biological", "Biology+"]
+GOAL_ORDER = ["Physical", "Biological", "Beyond Biology"]
 TIME_ORDER = ["Immediate Term", "Short Term", "Medium Term", "Long Term"]
 FIXED_COLORS = {
     "Physical": (255, 99, 132),
     "Biological": (54, 162, 235),
-    "Biology+": (255, 206, 86),
+    "Beyond Biology": (255, 206, 86),
     "Immediate Term": (75, 192, 192),
     "Short Term": (153, 102, 255),
     "Medium Term": (255, 159, 64),
